@@ -1,4 +1,5 @@
 #include <iostream>
+#include <random>
 #include <thread>
 #include <mutex>
 #include <atomic>
@@ -152,6 +153,14 @@ void list_insert( struct list *lst, int data )
 	lst->mtx->unlock();
 }
 
+// thread safe random number generator
+int gen_rand( int min, int max )
+{
+	static thread_local std::mt19937 generator;
+	std::uniform_int_distribution< int > distribution( min, max );
+	return distribution( generator );
+}
+
 void shuffle_array( int *arr, size_t n )
 {
 	for ( int i = 0; i < n - 1; i++ )
@@ -175,7 +184,7 @@ void servant_logic( struct list *lst, int *bag, std::atomic< int > *bag_pos, std
 {
 	while ( card_count->load() < PRESENT_COUNT )
 	{
-		int action = rand() % 3;
+		int action = gen_rand( 0, 2 );
 
 		// add a present into the chain
 		if ( action == 0 )
@@ -206,7 +215,7 @@ void servant_logic( struct list *lst, int *bag, std::atomic< int > *bag_pos, std
 		// check if a present is in the chain
 		else if ( action == 2 )
 		{
-			int present = rand() % PRESENT_COUNT;
+			int present = gen_rand( 0, PRESENT_COUNT );
 			list_contains( lst, present );
 		}
 	}
