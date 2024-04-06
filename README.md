@@ -27,6 +27,11 @@ I created a shared memory pool where each sensor would write to
 and would make sure that data was correctly written to by using
 mutex locks.
 
+Progress is guaranteed by having an atomic variable count the
+time elapsed. After each minute, each sensor will be notified to
+begin checking the temperature. After, the main thread will wait
+for the sensors to finish reading the temperature.
+
 
 # Building and Compiling
 

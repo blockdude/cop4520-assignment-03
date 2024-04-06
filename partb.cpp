@@ -202,6 +202,11 @@ void report( struct atm *atm )
 {
 	struct temp_data td;
 	temp_data_init( &td );
+
+	for ( int i = 0; i < SENSOR_COUNT; i++ )
+	{
+		atm->sensors[ i ].mtx->lock();
+	}
 	
 	// find highs and lows
 	for ( int i = 0; i < SENSOR_COUNT; i++ )
@@ -232,6 +237,11 @@ void report( struct atm *atm )
 		}
 
 		if ( max - min > diff ) diff = max - min;
+	}
+
+	for ( int i = 0; i < SENSOR_COUNT; i++ )
+	{
+		atm->sensors[ i ].mtx->unlock();
 	}
 
 	printf( "Top 5 highest temperatures: " );
