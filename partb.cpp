@@ -198,7 +198,6 @@ void insert_high( struct temp_data *data, int val )
 	}
 }
 
-
 void report( struct atm *atm )
 {
 	struct temp_data td;
@@ -218,18 +217,26 @@ void report( struct atm *atm )
 		atm->sensors[ i ].mtx->unlock();
 	}
 
+	// find highs and lows
+	int diff = 0;
+	for ( int t = 0; t < MINUTES_IN_HOUR - 10; t++ )
+	{
+		int max = atm->sensors[ 0 ].readings[ t ];
+		int min = atm->sensors[ 0 ].readings[ t ];
+
+		for ( int j = 0; j < 10; j++ )
+		{
+		}
+	}
+
 	printf( "Top 5 highest temperatures: " );
 	for ( int i = 0; i < MAX_HIGH_COUNT; i++ )
-	{
 		printf( "%d, ", td.high[ i ] );
-	}
 	printf( "\n" );
 
 	printf( "Top 5 lowest temperatures: " );
 	for ( int i = MAX_LOW_COUNT - 1; i >= 0; i-- )
-	{
 		printf( "%d, ", td.low[ i ] );
-	}
 	printf( "\n" );
 }
 
