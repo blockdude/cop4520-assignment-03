@@ -156,7 +156,8 @@ void list_insert( struct list *lst, int data )
 // thread safe random number generator
 int gen_rand( int min, int max )
 {
-	static thread_local std::mt19937 generator;
+	std::random_device rd;
+	static thread_local std::mt19937 generator(rd());
 	std::uniform_int_distribution< int > distribution( min, max );
 	return distribution( generator );
 }

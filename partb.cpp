@@ -220,6 +220,7 @@ void report( struct atm *atm )
 
 	// find greatest difference
 	int diff = 0;
+	int interval = 0;
 	for ( int t = 0; t < MINUTES_IN_HOUR - 10; t++ )
 	{
 		int max = atm->sensors[ 0 ].readings[ t ];
@@ -236,7 +237,11 @@ void report( struct atm *atm )
 			}
 		}
 
-		if ( max - min > diff ) diff = max - min;
+		if ( max - min > diff )
+		{
+			diff = max - min;
+			interval = t;
+		}
 	}
 
 	for ( int i = 0; i < SENSOR_COUNT; i++ )
@@ -245,16 +250,16 @@ void report( struct atm *atm )
 	}
 
 	printf( "Top 5 highest temperatures: " );
-	for ( int i = 0; i < MAX_HIGH_COUNT; i++ )
+	for ( int i = 0; i < MAX_HIGH_COUNT - 1; i++ )
 		printf( "%d, ", td.high[ i ] );
-	printf( "\n" );
+	printf( "%d\n", td.high[ MAX_HIGH_COUNT - 1 ] );
 
 	printf( "Top 5 lowest temperatures: " );
-	for ( int i = MAX_LOW_COUNT - 1; i >= 0; i-- )
+	for ( int i = MAX_LOW_COUNT - 1; i >= 1; i-- )
 		printf( "%d, ", td.low[ i ] );
-	printf( "\n" );
+	printf( "%d\n", td.low[ 0 ] );
 
-	printf( "Greatest difference: %d\n", diff );
+	printf( "Greatest difference: %d, happened between minutes %d and %d within this hour.\n", diff, interval, interval + 10 );
 }
 
 void read_temps( void )
@@ -284,7 +289,7 @@ void read_temps( void )
 
 		if ( time.fetch_add( 0 ) % MINUTES_IN_HOUR == 0 )
 		{
-			printf( "Hour: %d\n", time.fetch_add( 0 ) / MINUTES_IN_HOUR );
+			printf( "\nHour: %d\n", time.fetch_add( 0 ) / MINUTES_IN_HOUR );
 			printf( "----------------\n" );
 			report( &atm );
 			printf( "----------------\n" );
