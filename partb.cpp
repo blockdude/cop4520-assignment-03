@@ -6,8 +6,10 @@
 #include <condition_variable>
 
 #define SENSOR_COUNT 8
-#define MINUTES_TO_RUN 12
+#define MINUTES_TO_RUN 120
 #define MINUTES_IN_HOUR 60
+#define MAX_HIGH_COUNT 5
+#define MAX_LOW_COUNT 5
 
 struct sensor
 {
@@ -30,6 +32,21 @@ struct atm
 	// counts how many sensors are done
 	std::atomic< int > count;
 };
+
+struct temp_data
+{
+	int high[ MAX_HIGH_COUNT ];
+	size_t high_count;
+
+	int low[ 5 ];
+	size_t low_count;
+};
+
+void temp_data_init( struct temp_data *td )
+{
+	td->high_count = 0;
+	td->low_count = 0;
+}
 
 void sensor_init( struct sensor *s )
 {
@@ -80,7 +97,8 @@ void atm_free( struct atm *atm )
 // thread safe random number generator
 int gen_rand( int min, int max )
 {
-	static thread_local std::mt19937 generator;
+	std::random_device rd;
+	static thread_local std::mt19937 generator(rd());
 	std::uniform_int_distribution< int > distribution( min, max );
 	return distribution( generator );
 }
@@ -96,7 +114,6 @@ void sensor_logic( struct atm *atm, std::atomic< int > *time, int id )
 		if ( time->fetch_add( 0 ) > MINUTES_TO_RUN )
 			break;
 
-		printf( "time: %d, %d | %d | %d\n", time->load(), id, sen->done, atm->count.fetch_add( 0 ) );
 		sen->readings[ sen->idx ] = gen_rand( -100, 70 );
 		sen->idx = ( sen->idx + 1 ) % MINUTES_IN_HOUR;
 		sen->done = 1;
@@ -104,7 +121,6 @@ void sensor_logic( struct atm *atm, std::atomic< int > *time, int id )
 		lk.unlock();
 
 		atm->count.fetch_add( 1 );
-		atm->cv.notify_all();
 	}
 }
 
@@ -116,6 +132,105 @@ void reset_sensor_status( struct atm *atm )
 		atm->sensors[ i ].done = 0;
 		atm->sensors[ i ].mtx->unlock();
 	}
+}
+
+void insert_low( struct temp_data *data, int val )
+{
+	// smaller than all values
+	if ( data->low_count >= MAX_HIGH_COUNT && data->low[ MAX_HIGH_COUNT - 1 ] < val )
+		return;
+
+	// fill array if it is not filled
+	if ( data->low_count < MAX_HIGH_COUNT )
+	{
+		data->low[ data->low_count ] = val;
+		data->low_count++;
+	}
+
+	// index of current val
+	size_t i = data->low_count - 1;
+
+	if ( data->low[ i ] < val )
+		return;
+
+	// replace current smallest val
+	data->low[ i ] = val;
+
+	// insertion sort
+	while ( i > 0 && data->low[ i ] < data->low[ i - 1 ] )
+	{
+		int tmp = data->low[ i ];
+		data->low[ i ] = data->low[ i - 1 ];
+		data->low[ i - 1 ] = tmp;
+		i--;
+	}
+}
+
+void insert_high( struct temp_data *data, int val )
+{
+	// smaller than all values
+	if ( data->high_count >= MAX_HIGH_COUNT && data->high[ MAX_HIGH_COUNT - 1 ] > val )
+		return;
+
+	// fill array if it is not filled
+	if ( data->high_count < MAX_HIGH_COUNT )
+	{
+		data->high[ data->high_count ] = val;
+		data->high_count++;
+	}
+
+	// index of current val
+	size_t i = data->high_count - 1;
+
+	if ( data->high[ i ] > val )
+		return;
+
+	// replace current smallest val
+	data->high[ i ] = val;
+
+	// insertion sort
+	while ( i > 0 && data->high[ i ] > data->high[ i - 1 ] )
+	{
+		int tmp = data->high[ i ];
+		data->high[ i ] = data->high[ i - 1 ];
+		data->high[ i - 1 ] = tmp;
+		i--;
+	}
+}
+
+
+void report( struct atm *atm )
+{
+	struct temp_data td;
+	temp_data_init( &td );
+	
+	// find highs and lows
+	for ( int i = 0; i < SENSOR_COUNT; i++ )
+	{
+		atm->sensors[ i ].mtx->lock();
+
+		for ( int t = 0; t < MINUTES_IN_HOUR; t++ )
+		{
+			insert_high( &td, atm->sensors[ i ].readings[ t ] );
+			insert_low( &td, atm->sensors[ i ].readings[ t ] );
+		}
+
+		atm->sensors[ i ].mtx->unlock();
+	}
+
+	printf( "Top 5 highest temperatures: " );
+	for ( int i = 0; i < MAX_HIGH_COUNT; i++ )
+	{
+		printf( "%d, ", td.high[ i ] );
+	}
+	printf( "\n" );
+
+	printf( "Top 5 lowest temperatures: " );
+	for ( int i = MAX_LOW_COUNT - 1; i >= 0; i-- )
+	{
+		printf( "%d, ", td.low[ i ] );
+	}
+	printf( "\n" );
 }
 
 void read_temps( void )
@@ -142,9 +257,16 @@ void read_temps( void )
 		reset_sensor_status( &atm );
 
 		time.fetch_add( 1 );
+
+		if ( time.fetch_add( 0 ) % MINUTES_IN_HOUR == 0 )
+		{
+			printf( "Hour: %d\n", time.fetch_add( 0 ) / MINUTES_IN_HOUR );
+			printf( "----------------\n" );
+			report( &atm );
+			printf( "----------------\n" );
+		}
 	}
 
-	time.fetch_add( 5 );
 	atm.cv.notify_all();
 	for ( int i = 0; i < SENSOR_COUNT; i++ )
 	{
