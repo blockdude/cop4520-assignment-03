@@ -221,7 +221,7 @@ void servant_logic( struct list *lst, int *bag, std::atomic< int > *bag_pos, std
 	}
 }
 
-void write_cards()
+void write_cards( void )
 {
 	int bag[ PRESENT_COUNT ];
 	std::atomic< int > bag_pos = 0;

@@ -3,7 +3,7 @@ all: parta partb
 run: all
 	@echo executing problem a
 	@echo -------------------
-	@exec ./parta
+	#@exec ./parta
 	@echo
 	@echo executing problem b
 	@echo -------------------
