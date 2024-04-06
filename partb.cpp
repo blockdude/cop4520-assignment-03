@@ -206,27 +206,32 @@ void report( struct atm *atm )
 	// find highs and lows
 	for ( int i = 0; i < SENSOR_COUNT; i++ )
 	{
-		atm->sensors[ i ].mtx->lock();
-
 		for ( int t = 0; t < MINUTES_IN_HOUR; t++ )
 		{
 			insert_high( &td, atm->sensors[ i ].readings[ t ] );
 			insert_low( &td, atm->sensors[ i ].readings[ t ] );
 		}
-
-		atm->sensors[ i ].mtx->unlock();
 	}
 
-	// find highs and lows
+	// find greatest difference
 	int diff = 0;
 	for ( int t = 0; t < MINUTES_IN_HOUR - 10; t++ )
 	{
 		int max = atm->sensors[ 0 ].readings[ t ];
 		int min = atm->sensors[ 0 ].readings[ t ];
 
-		for ( int j = 0; j < 10; j++ )
+		for ( int i = 0; i < SENSOR_COUNT; i++ )
 		{
+			for ( int j = 0; j < 10; j++ )
+			{
+				int a = atm->sensors[ i ].readings[ j ];
+
+				if ( a > max ) max = a;
+				if ( a < min ) min = a;
+			}
 		}
+
+		if ( max - min > diff ) diff = max - min;
 	}
 
 	printf( "Top 5 highest temperatures: " );
@@ -238,6 +243,8 @@ void report( struct atm *atm )
 	for ( int i = MAX_LOW_COUNT - 1; i >= 0; i-- )
 		printf( "%d, ", td.low[ i ] );
 	printf( "\n" );
+
+	printf( "Greatest difference: %d\n", diff );
 }
 
 void read_temps( void )
