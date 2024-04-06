@@ -62,7 +62,7 @@ with the source file then run the command:
 This should generate a two binary files named "parta" and "partb".
 
 
-# Runing
+# Running
 
 To run the program use:
 
